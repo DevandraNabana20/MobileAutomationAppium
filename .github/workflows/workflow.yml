@@ -1,0 +1,24 @@
+name: workflow.yml
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+      JAVA_VERSION: "25"
+      GRADLE_OPTS: -Dorg.gradle.daemon=false -Dorg.gradle.workers.max=2
+
+jobs:
+  test:
+    runs-on: Windows
+
+    steps:
+      - name: Checkout repository test
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+
+      - name : Run all tests
+        run: ./gradlew clean test
