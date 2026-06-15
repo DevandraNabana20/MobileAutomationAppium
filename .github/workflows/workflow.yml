@@ -1,4 +1,4 @@
-name: workflow.yml
+name: Appium Android Test
 
 on:
   push:
@@ -34,27 +34,36 @@ jobs:
             ~/.gradle/wrapper
           key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*') }}
 
-      - name: Check Appium Server Running
-        run: |
-          $response = Invoke-WebRequest -Uri "http://127.0.0.1:4723/status" -UseBasicParsing -ErrorAction SilentlyContinue
-          if ($response.StatusCode -ne 200) {
-            Write-Error " Appium server tidak berjalan! Jalankan dulu: appium --address 127.0.0.1 --port 4723"
-            exit 1
-          }
-          Write-Host " Appium server aktif"
-        shell: powershell
-
       - name: Check Emulator Running
+        shell: powershell
         run: |
-          $devices = adb devices
-          if ($devices -notmatch "emulator") {
-            Write-Error " Emulator tidak ditemukan! Jalankan emulator dulu."
+          $output = & adb devices 2>&1 | Out-String
+          Write-Host "ADB output: $output"
+          if ($output -notmatch "emulator") {
+            Write-Error "Emulator tidak ditemukan! Jalankan emulator dulu."
             exit 1
           }
-          Write-Host " Emulator aktif"
+          Write-Host "Emulator aktif"
+
+      - name: Check Appium Server Running
         shell: powershell
+        run: |
+          try {
+            $response = Invoke-RestMethod -Uri "http://127.0.0.1:4723/status" -Method Get
+            Write-Host "Appium server aktif"
+          } catch {
+            Write-Error "Appium server tidak berjalan! Jalankan dulu: appium --address 127.0.0.1 --port 4723"
+            exit 1
+          }
 
       - name: Run all tests
-        run: ./gradlew clean test
         shell: cmd
+        run: gradlew.bat clean test
 
+      - name: Upload test report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-report
+          path: build/reports/tests/
+          retention-days: 7
