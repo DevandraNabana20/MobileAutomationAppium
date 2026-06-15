@@ -6,19 +6,55 @@ on:
       - main
 
 env:
-      JAVA_VERSION: "25"
-      GRADLE_OPTS: -Dorg.gradle.daemon=false -Dorg.gradle.workers.max=2
+  JAVA_VERSION: "25"
+  GRADLE_OPTS: -Dorg.gradle.daemon=false -Dorg.gradle.workers.max=2
 
 jobs:
   test:
-    runs-on: Windows
+    name: Run Appium Tests
+    runs-on: self-hosted
 
     steps:
-      - name: Checkout repository test
+      - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: "temurin"
 
-      - name : Run all tests
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*') }}
+
+      - name: Check Appium Server Running
+        run: |
+          $response = Invoke-WebRequest -Uri "http://127.0.0.1:4723/status" -UseBasicParsing -ErrorAction SilentlyContinue
+          if ($response.StatusCode -ne 200) {
+            Write-Error " Appium server tidak berjalan! Jalankan dulu: appium --address 127.0.0.1 --port 4723"
+            exit 1
+          }
+          Write-Host " Appium server aktif"
+        shell: powershell
+
+      - name: Check Emulator Running
+        run: |
+          $devices = adb devices
+          if ($devices -notmatch "emulator") {
+            Write-Error " Emulator tidak ditemukan! Jalankan emulator dulu."
+            exit 1
+          }
+          Write-Host " Emulator aktif"
+        shell: powershell
+
+      - name: Run all tests
         run: ./gradlew clean test
+        shell: cmd
+
